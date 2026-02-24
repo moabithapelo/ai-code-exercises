@@ -1,0 +1,186 @@
+Exercise Part 1: Understanding a Specific Feature (Task Creation and Status Updates)
+Step 1: Relevant Files
+
+files related to task creation and status updates:
+
+    cli.py - Handles user input for create and status commands
+
+    app.py - Contains TaskManager with create_task() and update_task_status() methods
+
+    models.py - Defines Task class and TaskStatus enum
+
+    storage.py - Handles persistence of tasks to JSON
+
+TASK CREATION EXECUTION FLOW:
+
+User input → CLI → TaskManager → Task → Storage → JSON file
+
+STATUS UPDATE:
+
+User runs: `status <task_id> in_progress`
+   - CLI calls task_manager.update_task_status(task_id, "in_progress")
+   - TaskManager converts "in_progress" to TaskStatus.IN_PROGRESS enum
+   - TaskManager calls storage.update_task(task_id, status=new_status)
+   - Storage retrieves task from dictionary
+
+
+Main components involved in task creation/updates:
+
+    CLI Layer: cli.py - User interface and command parsing
+
+    Application Layer: app.py (TaskManager) - Business logic orchestration
+
+    Domain Layer: models.py (Task) - Core business entities and behavior
+
+    Data Layer: storage.py (TaskStorage) - Persistence and retrieval
+
+
+Execution flow for status update (non-DONE):
+
+CLI → TaskManager.update_task_status() → Storage.update_task() → Task.update() → Storage.save()
+
+Execution flow for status update (DONE - special case):
+
+CLI → TaskManager.update_task_status() → Storage.get_task() → Task.mark_as_done() → Storage.save()
+
+
+How data is stored and retrieved:
+
+    In-memory dictionary cache (self.tasks in TaskStorage)
+
+    JSON file persistence with custom encoders/decoders
+
+    Save operations triggered on every change (write-through)
+
+Interesting design patterns discovered:
+
+    Repository Pattern: TaskStorage abstracts all data access
+
+    Active Record: Task objects contain both data and behavior
+
+
+
+
+Exercise Part 2: Deepen Understanding Through Guided Questions
+
+    Priorities are defined in models.py as an Enum TaskPriority with values:
+
+        LOW = 1
+
+        MEDIUM = 2
+
+        HIGH = 3
+
+        URGENT = 4
+
+    Priority is set during task creation via -p flag (default 2 = MEDIUM)
+
+    Priority is stored as an integer value in JSON (converted via TaskEncoder)
+
+    Tasks can be filtered by priority using list_tasks(priority_filter=3)
+
+    Priority appears in get_statistics() counts
+
+initial understanding: Priority is just a simple numeric label for sorting and filtering, with 4 being highest importance.
+
+
+Question 1: Methods using priority in Task class?
+After searching, It is that found no methods in Task class that use priority. The class has update(), mark_as_done(), is_overdue() - none reference self.priority.
+
+Question 2: Does is_overdue() consider priority?
+No, is_overdue() only checks due_date and status != DONE. It doesn't consider priority. From a business perspective, maybe HIGH priority tasks should have stricter overdue rules (e.g., 1 day late is critical, while LOW could be more lenient).
+
+Question 4: Where are priority values compared?
+I searched for priority ==, priority >, priority < - found nothing. There are no business rules that treat priorities differently. The only comparisons are equality checks for filtering.
+
+discovered:
+
+    Priority is just metadata - it has no behavior attached in the current implementation
+
+    The filtering system is mutually exclusive - can't filter by both status and priority
+
+    Priority is used only for reporting and display, not for business logic
+
+    The business rules around priority are missing - this feels like an incomplete feature
+
+My initial misconception: I thought priority was a functional part of the domain logic. Actually, it's just a passive attribute.
+
+
+
+
+
+Exercise Part 3: Mapping Data Flow (Mark Task as Complete)
+Entry Points and Components
+
+Entry points:
+
+    CLI: status <task_id> done command
+
+    Alternative: Could be called programmatically via TaskManager
+
+Components involved:
+
+    cli.py - Parses command, calls TaskManager
+
+    app.py (TaskManager) - Contains update_task_status() with DONE special case
+
+    models.py (Task) - Contains mark_as_done() method
+
+    storage.py - Retrieves task and saves changes
+
+Data Flow Diagram (conceptual):
+
+    User Input
+    → CLI Parsing
+        → TaskManager.update_task_status()
+            → Storage.get_task()
+                → Task.mark_as_done() [Domain logic]
+            → Storage.save()
+                → JSON serialization
+                → File write
+        → CLI output
+
+
+
+
+Exercise Part 4: Reflection and Presentation
+
+
+The Task Manager application follows a clean layered architecture:
+
+┌─────────────────┐
+│   CLI Layer     │  cli.py - User interaction, command parsing
+│   (Presentation)│
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ Application     │  app.py - TaskManager orchestrates business logic
+│ Layer           │
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ Domain Layer    │  models.py - Task, TaskStatus, TaskPriority
+│ (Business Logic)│  Contains core entities and behavior
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ Data Layer      │  storage.py - JSON persistence with Repository pattern
+│ (Persistence)   │
+└─────────────────┘
+
+
+Most Interesting Design Pattern Discovered
+
+The Repository Pattern with Active Record hybrid in storage.py and models.py is elegant
+
+What I Found Most Challenging
+
+The priority system was most confusing because:
+
+    The code implies priority is important (enum, filter, statistics)
+
+    But it has no actual behavior in the domain logic
+
+    I initially assumed it would affect business rules
+
+    The guided questions helped me realize this was a gap in the design, not my misunderstanding

@@ -1,0 +1,283 @@
+Exercise Part 1: Understanding Project Structure
+
+Directory Structure :
+
+    task_manager/ - Main package directory
+
+        app.py - application logic, TaskManager class
+
+        cli.py - Command-line interface, argument parsing
+
+        models.py - Task, TaskPriority, TaskStatus
+
+        storage.py - Data persistence (JSON file storage)
+
+Technologies identified:
+
+    Python 3 (syntax, imports)
+
+    JSON for data storage
+
+    argparse for CLI
+
+    datetime for date handling
+
+
+Main components:
+
+    TaskManager (app.py) - Business logic
+
+    CLI (cli.py) - User interface
+
+    Models (models.py) - entities and enums
+
+    Storage (storage.py) - Persistence layer
+
+Initial understanding: This is a simple task management CLI tool that stores tasks in a JSON file. The architecture follows a clear separation between UI (CLI), business logic (TaskManager), domain models, and data access (Storage).
+
+
+
+Exercise Part 2: Finding Feature Implementation
+
+Search terms used:
+
+    "export", "file", "csv", "write", "output", "save"
+
+
+Search results:
+
+    storage.py has file I/O (JSON read/write) 
+
+    cli.py has printing to console, but no file export
+
+    No existing CSV or export functionality found
+
+Hypothesis:
+
+The export feature would likely:
+
+    Belong in app.py as a new method in TaskManager 
+
+    Use the existing storage.get_all_tasks() to retrieve tasks
+
+    Format data in cli.py for user interaction
+
+    Might reuse TaskEncoder patterns from storage
+
+
+
+
+Exercise Part 3: Understanding Domain Model
+
+Core entities identified:
+
+    Task - The main domain entity
+
+    TaskPriority - Enum (LOW=1, MEDIUM=2, HIGH=3, URGENT=4)
+
+    TaskStatus - Enum (TODO, IN_PROGRESS, REVIEW, DONE)
+
+Relationships I see:
+
+    Task has one Priority 
+
+    Task has one Status
+
+    Task has many Tags 
+
+    Tasks are stored in TaskStorage 
+
+Business logic identified:
+
+    is_overdue(): Task is overdue if due_date < now and not DONE
+
+    mark_as_done(): Sets status, completed_at, updated_at
+
+    update(): Generic update with timestamp
+
+    Priority ordering (1-4) implies importance hierarchy
+
+Confusion points:
+
+    Why is REVIEW a status? What workflow does this imply?
+
+    Are tags just strings or should they be entities?
+
+    Is there any validation for due_date logic?
+
+
+
+
+Documentation of Findings
+
+Initial misconceptions corrected:
+
+    I thought there might be external dependencies, but it's pure Python stdlib
+
+    I didn't realize the custom JSON encoding/decoding was so sophisticated
+
+    The storage layer implements a full repository pattern, not just simple file I/O
+
+Entry points identified:
+
+    Main: cli.py with argparse handling
+
+    Application logic: TaskManager class in app.py
+
+    Data flow: CLI → TaskManager → Storage → JSON
+
+Key components and responsibilities:
+
+    CLI: User interaction, command parsing
+
+    TaskManager: Business logic orchestration
+
+    Task: Domain entity with business methods
+
+    TaskStorage: Data persistence, JSON handling
+
+
+
+
+Business implications of URGENT task in REVIEW:
+
+        This task is critical and needs immediate attention, even though it's in verification
+
+        It might need to skip the normal review queue and go to a specific reviewer
+
+        The team might need to pause other work to get this reviewed and released
+
+        Priority might affect SLA for review completion (e.g., URGENT reviewed within 1 hour vs 1 day for MEDIUM)
+
+Missing business logic in is_overdue():
+
+        Business hours vs 24/7: A task due at 5 PM might not be overdue until next business day
+
+        Weekends/holidays: Tasks due on Saturday might be considered overdue Monday
+
+        Timezone considerations: Due dates might need to account for team's working hours
+
+        Different SLAs for different priority levels
+
+Adding "blocked" status:
+
+        Add to TaskStatus enum as "BLOCKED"
+
+        Would need to store blocking reason (maybe new field)
+
+        Business rules: Blocked tasks might not count as overdue, might trigger notifications to managers
+
+        Could affect statistics (count in reports, velocity calculations)
+
+Problem with free-form tags:
+
+        Inconsistent tagging (e.g., "bug", "Bug", "BUG" treated as different tags)
+
+        No validation leads to typos and reporting errors
+
+        Can't enforce required tags or tag hierarchies
+
+        Improvement: Add controlled vocabulary, tag suggestions, or tag entities with validation
+
+Additional metrics from completed_at:
+
+        Average time from created to completed (cycle time)
+
+        Time spent in each status (where do tasks get stuck?)
+
+        Week-over-week completion trends
+
+        Predict future completion based on historical data
+
+        SLA compliance rate for different priority levels
+
+
+
+Exercise Part 4: Practical Application
+Scenario: Implement "Tasks overdue >7 days become abandoned unless HIGH priority"
+
+1. Files to Modify:
+
+Based on my understanding:
+
+    models.py: Add new status ABANDONED to TaskStatus enum
+
+    models.py: Add check_abandoned() method or modify is_overdue() logic
+
+    app.py: Add process_abandoned_tasks() method to TaskManager
+
+    cli.py: Possibly add command to manually run this process
+
+    storage.py: No changes needed (status persistence already handled)
+
+
+
+2. Implementation Plan:
+
+    Step 1: Add new status in models.py
+    Step 2: Add business logic in Task class (models.py)
+    Step 3: Add processing method in TaskManager (app.py)
+    Step 4: Optionally add CLI command (cli.py)
+
+
+3. Aspects still unclear:
+
+    How concurrent access to the JSON file is handled (file locking?)
+
+    Whether there are any business rules about task dependencies (blocked by other tasks)
+
+    The expected scale of the application (hundreds or thousands of tasks?)
+
+
+
+Initial vs Final Understanding
+
+
+Aspect	        Initial Understanding	    Final Understanding
+
+Architecture	 Simple CLI tool	        Layered (CLI→App→Domain→Storage) with repository pattern
+
+Technologies	 Python, argparse, JSON	    Plus custom JSON encoding, enum-based state machine
+
+Domain	         Just task tracking	        Workflow (REVIEW for QA), priority-based SLAs
+
+Data flow	     Linear	                    Event-driven with timestamps tracking lifecycle
+
+
+
+Most Valuable Insights
+
+
+    Project Structure: The separation of concerns is intentional and follows established patterns
+
+    Feature Location: New features should mirror existing patterns (add method to TaskManager, command to CLI)
+
+    Domain Model: Status and priority together define business rules and team workflows
+
+
+Implementation Approach for Abandoned Tasks
+
+The implementation would:
+
+    Add ABANDONED status
+
+    Add business rule logic in Task class
+
+    Add processing method in TaskManager
+
+    Add optional CLI command
+
+    Ensure storage handles new status automatically
+
+Future Strategies for Unfamiliar Code
+
+    Use the three-prompt approach systematically: structure → features → domain
+
+    Draw diagrams early and revise them
+
+    Run the application and trace through actual usage
+
+    Look for tests to understand expected behavior
+
+    Ask the AI to test my understanding with questions, not just provide answers
+
