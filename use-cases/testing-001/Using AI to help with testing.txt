@@ -1,0 +1,65 @@
+Selected Implementation: Python Task Manager (calculate_task_score function)
+
+I'm learning how to test this function, and I want to understand what behaviors I should test:
+
+```python
+def calculate_task_score(task):
+    # Base priority weights
+    priority_weights = {
+        TaskPriority.LOW: 1,
+        TaskPriority.MEDIUM: 2,
+        TaskPriority.HIGH: 4,
+        TaskPriority.URGENT: 6
+    }
+
+    # Calculate base score from priority
+    score = priority_weights.get(task.priority, 0) * 10
+
+    # Add due date factor (higher score for tasks due sooner)
+    if task.due_date:
+        days_until_due = (task.due_date - datetime.now()).days
+        if days_until_due < 0:  # Overdue tasks
+            score += 35
+        elif days_until_due == 0:  # Due today
+            score += 20
+        elif days_until_due <= 2:  # Due in next 2 days
+            score += 15
+        elif days_until_due <= 7:  # Due in next week
+            score += 10
+
+    # Reduce score for tasks that are completed or in review
+    if task.status == TaskStatus.DONE:
+        score -= 50
+    elif task.status == TaskStatus.REVIEW:
+        score -= 15
+
+    # Boost score for tasks with certain tags
+    if any(tag in ["blocker", "critical", "urgent"] for tag in task.tags):
+        score += 8
+
+    # Boost score for recently updated tasks
+    days_since_update = (datetime.now() - task.updated_at).days
+    if days_since_update < 1:
+        score += 5
+
+    return score
+
+
+Test Cases for calculate_task_score
+Priority Tests
+
+    [PRIORITY-1] LOW priority → base score 10
+
+    [PRIORITY-2] MEDIUM priority → base score 20
+
+    [PRIORITY-3] HIGH priority → base score 40
+
+    [PRIORITY-4] URGENT priority → base score 60
+
+    [PRIORITY-5] Invalid priority → base score 0
+
+Integration Tests
+
+    [INTEGRATION-1] Combination of multiple factors (e.g., URGENT + overdue + blocker tag)
+
+    [INTEGRATION-2] DONE task should have lowest score among comparable tasks
