@@ -1,0 +1,388 @@
+Chosen complex algorithm: Task Priority Scoring Algorithm
+
+Prompt 1 :
+
+```python
+
+def calculate_task_score(task):
+    """
+    Calculate a priority score for a task based on multiple weighted factors.
+    
+    This function implements a scoring algorithm that determines task importance
+    by combining priority level, due date proximity, current status, tags, and
+    recent activity. Higher scores indicate tasks that should be prioritized
+    higher in a to-do list.
+    
+    The scoring algorithm uses the following weighted factors:
+    - Base priority (weighted 10x): LOW=10, MEDIUM=20, HIGH=40, URGENT=60
+    - Due date proximity: Overdue (+35), Today (+20), ≤2 days (+15), ≤7 days (+10)
+    - Status penalties: DONE (-50), REVIEW (-15)
+    - Critical tags: +8 for "blocker", "critical", or "urgent" tags
+    - Recent activity: +5 if updated in last 24 hours
+    
+    Args:
+        task (Task): A Task object containing the following attributes:
+            - priority (TaskPriority): Enum value (LOW=1, MEDIUM=2, HIGH=4, URGENT=6)
+            - due_date (datetime, optional): Task due date, or None if no deadline
+            - status (TaskStatus): Current status (TODO, IN_PROGRESS, REVIEW, DONE)
+            - tags (list[str]): List of tag strings associated with the task
+            - updated_at (datetime): Timestamp of last task update
+    
+    Returns:
+        int: A priority score where higher values indicate higher priority.
+             Scores typically range from -50 (completed low-priority tasks)
+             to around 100+ (urgent, overdue tasks with critical tags).
+    
+    Raises:
+        AttributeError: If the task object is missing required attributes
+        TypeError: If task attributes have incorrect types
+    
+    Examples:
+        >>> from datetime import datetime, timedelta
+        >>> from models import Task, TaskPriority, TaskStatus
+        
+        >>> # Create a high-priority task due tomorrow
+        >>> task = Task(
+        ...     title="Submit report",
+        ...     priority=TaskPriority.HIGH,
+        ...     due_date=datetime.now() + timedelta(days=1),
+        ...     status=TaskStatus.IN_PROGRESS,
+        ...     tags=["critical"],
+        ...     updated_at=datetime.now()
+        ... )
+        >>> calculate_task_score(task)
+        73  # 40 (HIGH) + 15 (due ≤2 days) + 8 (critical tag) + 5 (recent) + 5? (check calculation)
+        
+        >>> # Completed task should have low/negative score
+        >>> task.status = TaskStatus.DONE
+        >>> calculate_task_score(task)
+        23  # 73 - 50 (DONE penalty)
+    
+    Notes:
+        - The algorithm assumes UTC timezone for all datetime comparisons.
+          Using naive datetimes may cause off-by-one errors near date boundaries.
+        - The function recalculates the score each time; no caching is performed.
+        - Overdue tasks receive a flat +35 bonus regardless of how overdue they are.
+        - Tag matching is case-sensitive: "Blocker" won't match "blocker".
+        - The function does not validate that task attributes exist or are of correct type.
+    
+    Edge Cases:
+        - Task with no due_date: No date bonuses applied
+        - Task with due_date but no time component: Comparison uses midnight
+        - Task with negative due_date (already overdue): Receives +35 bonus
+        - Task with no tags: No tag bonus applied
+        - Task with multiple critical tags: Bonus applied only once
+        - DONE tasks can receive negative scores (intentional to deprioritize them)
+    """
+
+
+Prompt 2 :-
+
+
+```python
+def calculate_task_score(task):
+    """
+    HIGH-LEVEL INTENT:
+    This function implements a task prioritization algorithm that answers the question:
+    "Which task should I work on next?" It calculates a numerical score for each task
+    where higher scores indicate tasks that should be prioritized higher in a to-do list.
+    
+    The algorithm encodes business rules about what makes a task important:
+    - Tasks with higher priority levels are inherently more important
+    - Tasks with approaching deadlines become increasingly urgent
+    - Overdue tasks are critical and jump to the top
+    - Completed tasks should be deprioritized (nearly invisible)
+    - Tasks in review are less urgent than active work
+    - Certain keywords (blocker, critical) signal exceptional importance
+    - Recently updated tasks might need continued attention
+    
+    STEP-BY-STEP LOGIC BREAKDOWN:
+    """
+    
+    # STEP 1: Base Priority Score
+    # Map priority levels to numeric weights: LOW=1, MEDIUM=2, HIGH=4, URGENT=6
+    # Multiply by 10 to create separation between levels (10,20,40,60)
+    # This establishes the foundation: URGENT tasks start 6x higher than LOW
+    priority_weights = {
+        TaskPriority.LOW: 1,
+        TaskPriority.MEDIUM: 2,
+        TaskPriority.HIGH: 4,
+        TaskPriority.URGENT: 6
+    }
+    score = priority_weights.get(task.priority, 0) * 10
+    
+    # STEP 2: Due Date Urgency
+    # Tasks with deadlines approaching get progressive bonuses
+    # The bonuses decrease as the deadline gets further away
+    # Overdue tasks get the largest bonus to make them surface immediately
+    if task.due_date:
+        days_until_due = (task.due_date - datetime.now()).days
+        
+        if days_until_due < 0:  # Overdue tasks (past deadline)
+            score += 35          # Biggest boost - these need attention NOW
+        elif days_until_due == 0:  # Due today
+            score += 20            # Very urgent
+        elif days_until_due <= 2:  # Due in next 2 days
+            score += 15            # Soon
+        elif days_until_due <= 7:  # Due in next week
+            score += 10            # Approaching
+
+    # STEP 3: Status Penalties
+    # Tasks that are completed or in review should be less prominent
+    # DONE tasks get massive penalty to effectively remove them from priority lists
+    # REVIEW tasks get moderate penalty (they're waiting, not active)
+    if task.status == TaskStatus.DONE:
+        score -= 50  # Heavy penalty - completed tasks shouldn't be in priority lists
+    elif task.status == TaskStatus.REVIEW:
+        score -= 15  # Moderate penalty - needs feedback, not immediate action
+
+    # STEP 4: Critical Tag Boost
+    # Certain tags indicate tasks that are exceptionally important
+    # Small boost to elevate them slightly above similar tasks without these tags
+    if any(tag in ["blocker", "critical", "urgent"] for tag in task.tags):
+        score += 8   # Small but significant boost
+
+    # STEP 5: Recent Activity Boost
+    # Tasks updated recently might be "in progress" and need continued attention
+    # Tiny boost to keep them slightly higher than stale tasks
+    days_since_update = (datetime.now() - task.updated_at).days
+    if days_since_update < 1:  # Updated in last 24 hours
+        score += 5   # Small boost for active tasks
+
+    return score
+
+# KEY ASSUMPTIONS & EDGE CASES:
+"""
+ASSUMPTIONS:
+1. All datetimes are naive (no timezone) - comparisons may be off by hours
+2. Task objects always have all required attributes
+3. Priority values always match the enum (1,2,4,6)
+4. Tags are case-sensitive strings
+5. The scoring weights (35,20,15,10,50,8,5) are appropriate for the business needs
+
+EDGE CASES:
+1. Task due_date at 11:59 PM vs calculation at 12:01 AM - day calculation may be off
+2. Task updated just before midnight - "days_since_update < 1" may be misleading
+3. Multiple critical tags - bonus applied only once (no compounding)
+4. DONE tasks with high priority + overdue - still get -50 penalty
+5. Tasks with no due_date - never get date bonuses
+6. Tasks in REVIEW that are also overdue - still get overdue bonus despite penalty
+7. Tasks with priority not in enum - defaults to 0 (potential bug)
+
+POTENTIAL IMPROVEMENTS (maintaining functionality):
+1. Use constants instead of magic numbers for easier tuning
+2. Add timezone handling for date comparisons
+3. Use timedelta.total_seconds() for more precise "recent" calculations
+4. Add case-insensitive tag matching
+5. Cache calculated scores for performance with large task lists
+6. Add progressive overdue bonus (more overdue = higher score)
+7. Document the scoring weights in business terms
+"""
+
+Compare and Combine:
+
+Comparing the Two Documentation Versions:
+
+Aspect	    Prompt 1 (Comprehensive)	                        Prompt 2 (Intent & Logic)
+Focus	    Reference documentation for users	                Explanatory documentation for maintainers
+Format	    Structured (Args, Returns, Raises, Examples)	    Narrative (Step-by-step breakdown)
+Strength	Complete reference with examples	                Deep understanding of "why"
+Audience	Developers using the function	                    Developers maintaining the function
+Insights	Edge cases, error conditions	                    Assumptions, business rules, improvements
+
+
+Final Combined Documentation:
+
+def calculate_task_score(task):
+    """
+    Calculate a priority score for a task based on multiple weighted factors.
+    
+    This function implements a task prioritization algorithm that answers:
+    "Which task should I work on next?" It calculates a numerical score for
+    each task where higher scores indicate tasks that should be prioritized
+    higher in a to-do list.
+    
+    The algorithm encodes business rules about what makes a task important:
+    - Higher priority levels have higher base scores
+    - Approaching deadlines add urgency bonuses
+    - Overdue tasks receive a significant boost
+    - Completed tasks are heavily penalized (effectively deprioritized)
+    - Tasks in review receive a moderate penalty
+    - Certain keywords (blocker, critical, urgent) add a small bonus
+    - Recently updated tasks get a tiny boost for continuity
+    
+    SCORING BREAKDOWN:
+    ┌──────────────────┬───────────┬─────────────────────────────────┐
+    │ Factor           │ Weight    │ Business Justification          │
+    ├──────────────────┼───────────┼─────────────────────────────────┤
+    │ Priority: LOW    │ +10       │ Baseline importance             │
+    │ Priority: MEDIUM │ +20       │                                 │
+    │ Priority: HIGH   │ +40       │                                 │
+    │ Priority: URGENT │ +60       │                                 │
+    ├──────────────────┼───────────┼─────────────────────────────────┤
+    │ Overdue          │ +35       │ Past deadline - critical!       │
+    │ Due today        │ +20       │ Same-day urgency                │
+    │ Due ≤2 days      │ +15       │ Approaching deadline            │
+    │ Due ≤7 days      │ +10       │ On the radar                    │
+    ├──────────────────┼───────────┼─────────────────────────────────┤
+    │ Status: DONE     │ -50       │ Remove from priority lists      │
+    │ Status: REVIEW   │ -15       │ Waiting, not active             │
+    ├──────────────────┼───────────┼─────────────────────────────────┤
+    │ Critical tags    │ +8        │ "blocker/critical/urgent"       │
+    │ Updated <24h     │ +5        │ Recently active                 │
+    └──────────────────┴───────────┴─────────────────────────────────┘
+    
+    STEP-BY-STEP LOGIC:
+    
+    # Step 1: Base Priority Score
+    # Map priority levels to numeric weights and multiply by 10
+    # This establishes the foundation: URGENT tasks start 6x higher than LOW
+    priority_weights = {
+        TaskPriority.LOW: 1,
+        TaskPriority.MEDIUM: 2,
+        TaskPriority.HIGH: 4,
+        TaskPriority.URGENT: 6
+    }
+    score = priority_weights.get(task.priority, 0) * 10
+    
+    # Step 2: Due Date Urgency
+    # Tasks with deadlines approaching get progressive bonuses
+    # The bonuses decrease as the deadline gets further away
+    if task.due_date:
+        days_until_due = (task.due_date - datetime.now()).days
+        
+        if days_until_due < 0:      # Overdue tasks
+            score += 35              # Biggest boost - need attention NOW
+        elif days_until_due == 0:    # Due today
+            score += 20               # Very urgent
+        elif days_until_due <= 2:     # Due in next 2 days
+            score += 15                # Soon
+        elif days_until_due <= 7:      # Due in next week
+            score += 10                 # Approaching
+
+    # Step 3: Status Penalties
+    # Tasks that are completed or in review should be less prominent
+    if task.status == TaskStatus.DONE:
+        score -= 50   # Heavy penalty - completed tasks shouldn't be in priority lists
+    elif task.status == TaskStatus.REVIEW:
+        score -= 15   # Moderate penalty - waiting for feedback
+
+    # Step 4: Critical Tag Boost
+    # Certain tags indicate tasks that are exceptionally important
+    critical_tags = ["blocker", "critical", "urgent"]
+    if any(tag in critical_tags for tag in task.tags):
+        score += 8    # Small but significant boost
+
+    # Step 5: Recent Activity Boost
+    # Tasks updated recently might need continued attention
+    days_since_update = (datetime.now() - task.updated_at).days
+    if days_since_update < 1:        # Updated in last 24 hours
+        score += 5                    # Small boost for active tasks
+
+    return score
+
+    Args:
+        task (Task): A Task object containing:
+            - priority (TaskPriority): Enum (LOW=1, MEDIUM=2, HIGH=4, URGENT=6)
+            - due_date (datetime, optional): Task due date or None
+            - status (TaskStatus): Current status (TODO, IN_PROGRESS, REVIEW, DONE)
+            - tags (list[str]): List of tag strings
+            - updated_at (datetime): Last update timestamp
+    
+    Returns:
+        int: Priority score. Higher values = higher priority.
+             Typical range: -50 (completed low-priority) to 100+ (urgent overdue)
+    
+    Raises:
+        AttributeError: If task is missing required attributes
+        TypeError: If attributes have incorrect types
+    
+    Examples:
+        >>> from datetime import datetime, timedelta
+        >>> from models import Task, TaskPriority, TaskStatus
+        
+        # High-priority task due tomorrow with critical tag
+        >>> task = Task(
+        ...     title="Submit report",
+        ...     priority=TaskPriority.HIGH,
+        ...     due_date=datetime.now() + timedelta(days=1),
+        ...     status=TaskStatus.IN_PROGRESS,
+        ...     tags=["critical"],
+        ...     updated_at=datetime.now()
+        ... )
+        >>> calculate_task_score(task)
+        68  # 40 (HIGH) + 15 (due ≤2 days) + 8 (critical) + 5 (recent)
+        
+        # Same task completed
+        >>> task.status = TaskStatus.DONE
+        >>> calculate_task_score(task)
+        18  # 68 - 50 (DONE penalty)
+        
+        # Overdue low-priority task
+        >>> task = Task(
+        ...     title="Clean desk",
+        ...     priority=TaskPriority.LOW,
+        ...     due_date=datetime.now() - timedelta(days=2),
+        ...     status=TaskStatus.TODO,
+        ...     tags=[],
+        ...     updated_at=datetime.now() - timedelta(days=5)
+        ... )
+        >>> calculate_task_score(task)
+        45  # 10 (LOW) + 35 (overdue)
+    
+    Important Notes:
+        - Date comparisons use naive datetimes (no timezone) - may cause off-by-one errors
+        - Overdue tasks receive a flat +35 regardless of how overdue (no compounding)
+        - Tag matching is case-sensitive: "Blocker" won't match "blocker"
+        - Multiple critical tags apply bonus only once (no stacking)
+        - DONE tasks can receive negative scores (intentional deprioritization)
+        - No validation that task has required attributes
+    
+    Edge Cases:
+        - Task with no due_date: No date bonuses applied
+        - Task due_date at 11:59 PM vs calculation at 12:01 AM: May mis-categorize
+        - Task with due_date but no time: Comparison uses midnight
+        - Task with priority not in enum: Defaults to 0 (potential bug)
+        - Task in REVIEW that's also overdue: Still gets overdue bonus
+        - Task with multiple critical tags: Only one +8 bonus
+    
+    Potential Improvements (maintaining functionality):
+        - Extract magic numbers to named constants for easier tuning
+        - Add timezone handling for accurate date comparisons
+        - Use timedelta.total_seconds() for more precise "recent" calculations
+        - Add case-insensitive tag matching
+        - Cache calculated scores for performance with large task lists
+        - Make overdue bonus progressive (more overdue = higher score)
+        - Add validation for task attributes
+    """
+
+
+Reflection Questions:
+
+1. What was most valuable about each prompt approach?
+
+Prompt 1 (Comprehensive Documentation) was most valuable for creating reference documentation that another developer could use to understand how to CALL the function correctly. The structured format with Args, Returns, Raises, and Examples gives a complete picture of the function's contract.
+
+Prompt 2 (Intent and Logic) was most valuable for understanding why the function exists and how it works internally. The step-by-step breakdown and identification of assumptions/edge cases would help a new team member understand the business rules encoded in the algorithm.
+2. What insights did Prompt 2 reveal that weren't in Prompt 1?
+
+    The business justification for each scoring factor
+
+    The assumptions the original developer made (naive datetimes, case-sensitive tags)
+
+    Edge cases I hadn't considered (tasks reviewed at midnight, multiple critical tags)
+
+    Potential improvements while maintaining functionality
+
+    The decorate-sort-undecorate pattern in the helper function
+
+3. How would I use these two approaches in the future?
+
+I would use Prompt 1 first when creating initial documentation for a new module or API that others will use. Then I would use Prompt 2 when I need to understand complex logic deeply, especially when maintaining or debugging existing code.
+
+The combination is powerful: Prompt 1 gives the "what" and Prompt 2 gives the "why".
+4. What was challenging about this exercise?
+
+The most challenging part was synthesizing the two different documentation styles into a cohesive whole. Prompt 1's structured format doesn't naturally accommodate the narrative explanations from Prompt 2. I solved this by adding a "Scoring Breakdown" table and "Step-by-Step Logic" section within the docstring, which maintains the structured format while incorporating the explanatory content.
+
+Another challenge was knowing what to include vs. what would overwhelm the documentation. The final version balances completeness with readability.
