@@ -1,0 +1,278 @@
+1. WHAT THE ALGORITHM DOES (Simple Terms):
+
+This algorithm calculates a "priority score" for each task to determine which tasks are most important to work on first. Think of it like a point system where:
+
+    Higher score = More important task
+
+    Tasks get points for being urgent, due soon, or having special tags
+
+    Tasks lose points for being done or in review
+
+    The tasks with the highest scores float to the top of your to-do list
+
+
+2. BUSINESS RULES EMBEDDED:
+
+Rule 1: "Priority is the foundation of importance"
+
+    Each priority level has a base weight that's scaled by 10
+
+    URGENT (6) is valued 6x more than LOW (1)
+
+Rule 2: "Due dates amplify importance"
+
+    Closer deadlines = higher priority
+
+    Overdue tasks jump to the top (+35 is the largest single boost)
+
+Rule 3: "Completed tasks should disappear from priority lists"
+
+    DONE tasks get -50, which almost always pushes them below active tasks
+
+Rule 4: "Tasks in review are lower priority than active work"
+
+    REVIEW status subtracts 15, making them less prominent
+
+Rule 5: "Certain keywords signal critical importance"
+
+    Tags like "blocker" or "critical" add a small boost
+
+Rule 6: "Recent activity indicates active work"
+
+    Updated today = slightly more relevant
+
+
+3. VISUAL REPRESENTATION:
+
+Base Score (Priority)
+LOW (1)    → 10 pts ─┐
+MEDIUM (2) → 20 pts  │
+HIGH (4)   → 40 pts  │
+URGENT (6) → 60 pts ─┼─────────────────────────────────┐
+                     │                                 │
+Due Date Factors:    │                                 │
+Overdue         +35 ─┼────┐                            │
+Due today       +20 ─┼────┼────┐                       │
+Due in 2 days   +15 ─┼────┼────┼────┐                  │
+Due in week     +10 ─┼────┼────┼────┼────┐             │
+                     │    │    │    │    │             │
+Status Penalties:    │    │    │    │    │             │
+REVIEW          -15 ─┼────┼────┼────┼────┼────┐        │
+DONE            -50 ─┼────┼────┼────┼────┼────┼────┐   │
+                     │    │    │    │    │    │    │   │
+Tag Bonus:           │    │    │    │    │    │    │   │
+Critical tags   +8 ──┼────┼────┼────┼────┼────┼────┼──┐│
+                     │    │    │    │    │    │    │  ││
+Recent update   +5 ──┼────┼────┼────┼────┼────┼────┼──┼┘
+                     ↓    ↓    ↓    ↓    ↓    ↓    ↓  ↓
+                FINAL SCORE (higher = more important)
+
+4. POTENTIAL ISSUES & EDGE CASES:
+
+a) Date calculation bug: (task.due_date - datetime.now()).days gives floor division, not exact. A task due in 23 hours might show as 0 days, getting "due today" bonus even though it's actually due tomorrow.
+
+b) No timezone handling: Using naive datetime could cause off-by-one errors across timezones.
+
+c) Overdue tasks accumulate multiple penalties: An overdue task keeps getting +35 every time you calculate, but doesn't get more urgent over time. Should it get more points the longer it's overdue?
+
+d) Tag matching is case-sensitive: "Blocker" won't match "blocker" (lowercase). Should use case-insensitive matching.
+
+e) Score overflow: Multiple high-priority factors could push scores arbitrarily high. Is there a maximum?
+
+f) Negative scores possible: A DONE task with no other factors would be -50. Is this intentional?
+
+g) Sorting inefficiency: The algorithm recalculates scores for every task on every sort. For large task lists, this could be slow. Consider caching scores.
+
+h) Magic numbers: Why 35 for overdue? Why 8 for tags? These seem arbitrary and should be constants or configurable.
+
+## Reflection Questions
+
+### 1. How did the AI's explanation change your understanding?
+
+**Before AI explanation**, I saw this as just a mathematical function adding and subtracting numbers. I understood what each line did technically, but not the *why* behind the numbers.
+
+**After AI explanation**, I understood:
+- The **business rules** embedded in the numbers (e.g., overdue tasks are 3.5x more important than recently updated tasks)
+- The **relative weighting** between factors (overdue +35 vs. urgent base 60 tells me urgency is more important than being overdue)
+- The **design philosophy** (completed tasks should effectively disappear from priority lists)
+- The **potential issues** I hadn't considered (timezone handling, case sensitivity, date calculation quirks)
+
+The biggest change was seeing this not as code, but as a **translation of business requirements into mathematics**.
+
+### 2. What aspects were still difficult to understand after AI explanation?
+
+**The magic numbers**: Why 35 for overdue? Why not 30 or 40? The AI couldn't explain the original designer's reasoning. These numbers likely came from:
+- Stakeholder discussions ("overdue tasks should be about 3x more important than a task due in a week")
+- Trial and error during development
+- Some mathematical formula (like Fibonacci sequence)
+
+**The interaction effects**: How do multiple factors combine? For example:
+- An URGENT task (+60) that's overdue (+35) with a blocker tag (+8) = 103
+- But does an overdue URGENT task truly need to be 103/60 ≈ 1.7x more important than just URGENT?
+- The linear addition might not reflect real-world priority compounding
+
+**The sorting stability**: If two tasks have the same score, which one comes first? The algorithm doesn't specify a tie-breaker.
+
+### 3. How would I explain this to another junior developer?
+
+**My explanation:**
+
+"Imagine you have a to-do list and you need to decide what to work on first. This algorithm does exactly that - it gives each task a score based on how important it is.
+
+Think of it like a game where tasks earn points:
+- An URGENT task starts with 60 points (like a boss battle)
+- A LOW priority task starts with only 10 points (like a side quest)
+
+Then tasks get bonus points for being close to their deadline:
+- Overdue tasks? +35 (they're on fire!)
+- Due today? +20
+- Due this week? +10
+
+But tasks lose points if they're done (-50, they're off the board) or in review (-15, waiting for feedback).
+
+Tasks with special tags like "blocker" or "critical" get a small +8 bonus, and tasks you've touched recently get +5.
+
+Finally, we sort all tasks by their score, highest first. The top 5 are your 'priority tasks'."
+
+**Testing this understanding with AI:**
+
+I asked the AI: "Did I explain this correctly?" The AI confirmed my explanation was accurate but added:
+- "You might want to emphasize that the numbers are arbitrary - they represent business priorities, not mathematical truths"
+- "The -50 for DONE tasks is particularly important - it ensures completed tasks don't clutter priority lists"
+
+### 4. How might I improve the algorithm?
+
+Based on my understanding, here are improvements I'd suggest:
+
+```python
+from datetime import datetime, timedelta
+import math
+
+# Constants (make magic numbers explicit and configurable)
+class PriorityWeights:
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 4
+    URGENT = 6
+
+class ScoreConstants:
+    PRIORITY_MULTIPLIER = 10
+    OVERDUE_BONUS = 35
+    DUE_TODAY_BONUS = 20
+    DUE_SOON_BONUS = 15  # 1-2 days
+    DUE_THIS_WEEK_BONUS = 10  # 3-7 days
+    DONE_PENALTY = 50
+    REVIEW_PENALTY = 15
+    CRITICAL_TAG_BONUS = 8
+    RECENT_UPDATE_BONUS = 5
+    MAX_SCORE = 200  # Optional ceiling
+
+def calculate_task_score_improved(task):
+    """Calculate a priority score with improvements."""
+    
+    # 1. Base priority score
+    score = task.priority.value * ScoreConstants.PRIORITY_MULTIPLIER
+    
+    # 2. Improved date handling (with timezone support)
+    if task.due_date:
+        # Ensure both datetimes are timezone-aware or both naive
+        now = datetime.now(task.due_date.tzinfo if task.due_date.tzinfo else None)
+        
+        # Use total seconds for more precise calculation
+        time_until_due = task.due_date - now
+        days_until_due = time_until_due.total_seconds() / (24 * 3600)
+        
+        if days_until_due < 0:  # Overdue
+            # Progressive overdue bonus (gets more urgent the longer it's overdue)
+            overdue_days = abs(days_until_due)
+            overdue_bonus = ScoreConstants.OVERDUE_BONUS + min(overdue_days * 2, 20)
+            score += overdue_bonus
+        elif days_until_due < 1:  # Due in next 24 hours
+            score += ScoreConstants.DUE_TODAY_BONUS
+        elif days_until_due <= 2:
+            score += ScoreConstants.DUE_SOON_BONUS
+        elif days_until_due <= 7:
+            score += ScoreConstants.DUE_THIS_WEEK_BONUS
+    
+    # 3. Status penalties
+    if task.status == TaskStatus.DONE:
+        score = max(score - ScoreConstants.DONE_PENALTY, -100)  # Prevent extreme negatives
+    elif task.status == TaskStatus.REVIEW:
+        score -= ScoreConstants.REVIEW_PENALTY
+    
+    # 4. Case-insensitive tag matching
+    task_tags_lower = [tag.lower() for tag in task.tags]
+    critical_tags = ["blocker", "critical", "urgent"]
+    if any(tag in task_tags_lower for tag in critical_tags):
+        score += ScoreConstants.CRITICAL_TAG_BONUS
+    
+    # 5. Recent update (with configurable window)
+    hours_since_update = (datetime.now() - task.updated_at).total_seconds() / 3600
+    if hours_since_update < 24:
+        score += ScoreConstants.RECENT_UPDATE_BONUS
+    
+    # Optional: Apply ceiling
+    if hasattr(ScoreConstants, 'MAX_SCORE'):
+        score = min(score, ScoreConstants.MAX_SCORE)
+    
+    return round(score, 2)  # Return rounded score for readability
+
+def sort_tasks_by_importance_with_cache(tasks):
+    """Sort with caching to avoid recalculation."""
+    # Simple cache to avoid recalculating same task multiple times
+    cache = {}
+    
+    def get_score(task):
+        if task.id not in cache:
+            cache[task.id] = calculate_task_score_improved(task)
+        return cache[task.id]
+    
+    return sorted(tasks, key=get_score, reverse=True)
+
+def get_top_priority_tasks_with_tiebreaker(tasks, limit=5):
+    """Return top tasks with tie-breaking rules."""
+    sorted_tasks = sort_tasks_by_importance_with_cache(tasks)
+    
+    # If we have fewer tasks than limit, return all
+    if len(sorted_tasks) <= limit:
+        return sorted_tasks
+    
+    # Check if there's a tie at the cutoff
+    cutoff_score = calculate_task_score_improved(sorted_tasks[limit-1])
+    next_score = calculate_task_score_improved(sorted_tasks[limit])
+    
+    if cutoff_score == next_score:
+        # Tie-breaker: prefer tasks with earlier creation date
+        tied_tasks = []
+        for task in sorted_tasks[limit:]:
+            if calculate_task_score_improved(task) == cutoff_score:
+                tied_tasks.append(task)
+            else:
+                break
+        
+        # Sort tied tasks by creation date (oldest first)
+        tied_tasks.sort(key=lambda t: t.created_at)
+        
+        # Replace the last few tasks with the tie-broken ones
+        result = sorted_tasks[:limit - len(tied_tasks)] + tied_tasks
+        return result[:limit]
+    
+    return sorted_tasks[:limit]
+
+6. Key improvements:
+
+    Named constants - Makes the "magic numbers" understandable and configurable
+
+    Timezone-aware date handling - Prevents off-by-one errors
+
+    Progressive overdue bonus - Tasks get more urgent the longer they're overdue
+
+    Case-insensitive tag matching - "Blocker" and "blocker" both match
+
+    Score caching - Improves performance for large task lists
+
+    Tie-breaking logic - Consistent ordering when scores are equal
+
+    Score ceiling - Prevents extreme values
+
+    Better date precision - Uses hours/seconds instead of just days
