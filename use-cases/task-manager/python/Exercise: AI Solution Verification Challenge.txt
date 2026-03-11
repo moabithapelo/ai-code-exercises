@@ -1,0 +1,94 @@
+Selected Scenario: A sorting function with a subtle bug (mergeSort)
+
+AI's Explanation:
+"The bug was in the first while loop after the main comparison. 
+The original code had j++ instead of i++ when copying remaining left elements.
+ This caused the left index to never increment, potentially creating an infinite 
+ loop or incorrect merging. I've fixed it to increment the correct index."
+
+ Learning Through Alternative Approaches:
+
+ Insights from Alternative Approaches:
+
+    Recursive vs Iterative: The recursive version is elegant but risks stack overflow for very large arrays. The iterative version uses constant stack space.
+
+    In-place vs Copying: True in-place merge sort is complex; most "in-place" implementations still use temporary arrays.
+
+    Functional style: The destructuring approach is elegant but creates many intermediate arrays, making it memory-intensive.
+
+    Consistency across approaches: All four implementations produce the same results, strongly validating the core merge logic.
+
+Confidence Increase: Medium → High
+
+Critical Issues Identified:
+
+    No comparator function – The implementation assumes numbers and uses < directly, making it inflexible
+
+    Mixed type handling – String vs number comparison leads to unexpected results
+
+    Memory usage – Creates many intermediate arrays, could be optimized
+
+    Stack overflow risk – For extremely large arrays (>10^5 elements), recursion depth may exceed call stack
+
+    No input validation – Doesn't handle null, undefined, or non-array inputs
+
+
+
+Verification                    Results Summary
+
+Verification Strategy	        What I Learned	Confidence Level
+Collaborative Verification	    The AI correctly identified the obvious bug (j++ vs i++) and fixed it	High (tests pass)
+Alternative Approaches	        Multiple implementations produce same results, confirming core logic	Higher (consistency across approaches)
+Critical Eye	                Discovered deeper issues: no comparator, mixed type handling, memory concerns, stack overflow risk	Highest (understood limitations)
+
+
+Reflection Questions
+1. How did your confidence in the solution change after verification?
+
+Initial confidence (after AI's first fix): ~50% – The fix looked correct for simple cases, but I hadn't verified thoroughly.
+
+After collaborative verification (testing): ~70% – All test cases passed, including edge cases like empty arrays and duplicates.
+
+After alternative approaches: ~85% – Seeing the same core logic work in three different implementations (iterative, in-place, functional) strongly validated the algorithm.
+
+After critical analysis: ~95% – Identifying limitations (comparator, mixed types, memory) showed me exactly what the solution doesn't handle, which paradoxically increased confidence in what it does handle well.
+
+Final robust version: 100% – The improved version addresses all identified issues.
+
+The verification process transformed my confidence from "I think this works" to "I know exactly when this works and when it doesn't."
+2. What aspects of the AI solution required the most scrutiny?
+
+The comparator assumption – The AI's initial solution assumed numeric comparison with <. This was the most subtle and important oversight. Many sorting bugs come from assuming all data is comparable the same way.
+
+The stability claim – I had to verify that the merge sort implementation preserves order of equal elements. This required a specific test case with objects having equal values.
+
+Memory usage – The recursive version creates many intermediate arrays. The AI didn't mention this performance consideration until prompted with critical analysis.
+
+Stack overflow risk – For very large arrays (e.g., 200,000+ elements), the recursive approach could exceed the call stack. This wasn't mentioned initially.
+
+The original bug's subtlety – The j++ instead of i++ bug was easy to miss in code review but obvious once pointed out. It taught me to carefully examine loop counters.
+3. Which verification technique was most valuable for your specific problem?
+
+The most valuable was "Developing a Critical Eye" because it uncovered issues beyond the obvious bug:
+
+    Missing comparator function – The implementation was locked to numeric sorting
+
+    Mixed type behavior – JavaScript's type coercion leads to unpredictable results
+
+    Memory and performance considerations – Important for production use
+
+    Stack overflow risk – Critical for large datasets
+
+    Input validation – Professional code should handle edge cases gracefully
+
+Why it was most valuable:
+
+    It transformed the solution from "working code" to "production-ready code"
+
+    It taught me about the limitations of the solution, not just its capabilities
+
+    It revealed assumptions I didn't know I was making
+
+    It provided a framework for evaluating any algorithm: correctness → performance → edge cases → usability
+
+The collaborative verification (testing) proved it worked, but the critical analysis revealed how it works and where it might fail – which is equally important for confident implementation.
