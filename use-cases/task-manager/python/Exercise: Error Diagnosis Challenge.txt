@@ -1,0 +1,112 @@
+ Apply Debugging Prompts:
+
+ ## 🔍 Error Analysis
+
+### 1. What Does This Error Mean?
+
+**Error Type**: `IndexError: list index out of range`
+
+This error occurs when your code tries to access an element in a list using an index that doesn't exist. In Python, lists are zero-indexed, meaning:
+- First element: index 0
+- Second element: index 1
+- ...
+- Last element: index `len(list) - 1`
+
+Attempting to access index `len(list)` or higher causes this error.
+
+**In your specific case**: 
+The error happened at line 10 in `print_inventory_report` when trying to access `items[i]` with an `i` value that was too large for the list.
+
+### 2. What's Causing It?
+
+Looking at your code:
+
+```python
+for i in range(len(items)):
+    print(f"Item {i+1}: {items[i]['name']} - Quantity: {items[i]['quantity']}")
+
+The problem: Inside the loop, you're modifying the list by accessing dictionary keys, but the loop itself looks correct. The error suggests that somewhere in your actual code (not shown), you might be:
+
+When you remove an item, the list shrinks, but range(len(items)) was calculated at the start. Later iterations try to access indexes that no longer exist.
+
+Most Likely Root Cause
+
+The most common cause is modifying the list while iterating over it. Your print_inventory_report
+
+What happens:
+
+    len(items) is calculated as 3 at the start
+
+    Loop runs with i = 0, 1, 2
+
+    When i = 1, you remove an item
+
+    List now has 2 items, but loop still tries i = 2
+
+    items[2] doesn't exist → IndexError
+
+
+Debugging Checklist for Future IndexErrors
+
+When you see "list index out of range":
+
+    Check if you're modifying the list during iteration
+
+    Verify list length before access: print(f"List length: {len(items)}")
+
+    Check if index starts at 0 (not 1)
+
+    Ensure you're not using index beyond len(list)-1
+
+    Look for off-by-one in range: range(len(list)) gives 0 to len-1 ✅
+
+    Check if empty list is being accessed
+
+    Verify nested lists have expected structure
+
+
+
+---
+
+## Step 2: Document My Analysis
+
+### Error Description and What It Means
+
+**Error:** `IndexError: list index out of range`
+
+**What it means:** The code attempted to access a list element using an index that doesn't exist. In Python lists, valid indices range from `0` to `len(list)-1`. Accessing index `len(list)` or higher causes this error.
+
+**In context:** The error occurred in `print_inventory_report` function at line 10, when trying to access `items[i]` with an `i` value that exceeded the list's bounds.
+
+### Root Cause Identification
+
+**Primary cause:** The function is likely modifying the list (`items`) while iterating over it using `range(len(items))`. When an element is removed, the list shrinks, but the loop continues with the original range, eventually accessing an index that no longer exists.
+
+**Common scenarios that cause this:**
+1. Removing items from a list while iterating over it
+2. Nested loops with incorrect index calculations
+3. Empty list being accessed (though error would occur at i=0)
+4. List being modified by another thread/function during iteration
+
+**Most likely code causing the error:**
+```python
+def print_inventory_report(items):
+    for i in range(len(items)):
+        if items[i]['quantity'] == 0:
+            items.remove(items[i])  # ← Removing during iteration!
+        print(f"Item {i+1}: {items[i]['name']} - Quantity: {items[i]['quantity']}")
+
+
+Learning Points
+
+    Never modify a collection while iterating over it – Create a copy or collect changes to apply after iteration.
+
+    Use enumerate() instead of range(len()) – It's more Pythonic and gives you both index and item safely.
+
+    List comprehensions are your friend – They're often cleaner and safer for filtering operations.
+
+    Add defensive programming – Check list lengths before access, especially in loops.
+
+    Logging helps – Add debug output to track list size changes during development.
+
+    Test edge cases – Empty lists, single-item lists, and lists where items are removed.
