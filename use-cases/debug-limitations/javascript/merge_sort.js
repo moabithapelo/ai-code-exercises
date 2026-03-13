@@ -1,4 +1,4 @@
-// Buggy sorting function
+// Fixed sorting function
 function mergeSort(arr) {
     if (arr.length <= 1) return arr;
 
@@ -24,12 +24,13 @@ function merge(left, right) {
         }
     }
 
-    // Bug: Only one of these loops will execute
+    // Fixed: Copy remaining elements from left array
     while (i < left.length) {
         result.push(left[i]);
-        j++; // Bug: incrementing j instead of i
+        i++; // Fixed: increment i, not j
     }
 
+    // Copy remaining elements from right array
     while (j < right.length) {
         result.push(right[j]);
         j++;
